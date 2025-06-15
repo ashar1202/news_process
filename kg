@@ -1,0 +1,968 @@
+##pip install networkx matplotlib numpy pandas plotly streamlit scipy
+
+import networkx as nx
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from typing import Dict, List, Tuple, Any
+import json
+import re
+from collections import defaultdict
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
+import streamlit as st
+from datetime import datetime
+import sqlite3
+import pickle
+
+
+class MarketEventKnowledgeGraph:
+    """
+    A comprehensive knowledge graph system for market events analysis
+    with conversational AI capabilities
+    """
+
+    def __init__(self):
+        self.graph = nx.DiGraph()
+        self.market_events_data = self._load_market_events_data()
+        self.conversation_history = []
+        self.node_embeddings = {}
+        self.build_knowledge_graph()
+
+    def _load_market_events_data(self) -> Dict:
+        """Load the market events data"""
+        return {
+            "Federal Reserve Raises Interest Rates by 0.75%": {
+                "category": "Monetary Policy",
+                "color": "#3b82f6",
+                "severity": "high",
+                "probability": 0.7,
+                "causes": {
+                    "Higher Borrowing Costs": [
+                        "Corporate capex reduction",
+                        "Consumer spending decline",
+                        "Mortgage demand drops",
+                        "Credit card usage falls"
+                    ],
+                    "Stronger US Dollar": [
+                        "Export competitiveness drops",
+                        "Emerging market outflows",
+                        "Commodity prices fall",
+                        "International revenue translation losses"
+                    ],
+                    "Bond Yields Rise": [
+                        "Tech stock valuations compress",
+                        "REIT prices decline",
+                        "Bank net interest margins improve",
+                        "Fixed income portfolio losses"
+                    ]
+                }
+            },
+            "Apple Reports 15% Revenue Decline": {
+                "category": "Corporate Earnings",
+                "color": "#10b981",
+                "severity": "medium",
+                "probability": 0.3,
+                "causes": {
+                    "Tech Sector Contagion": [
+                        "NASDAQ composite falls",
+                        "Growth stock rotation",
+                        "Tech ETF outflows",
+                        "Semiconductor stocks decline"
+                    ],
+                    "Supply Chain Concerns": [
+                        "China exposure stocks fall",
+                        "Manufacturing sector weakness",
+                        "Logistics costs rise",
+                        "Inventory writedowns"
+                    ],
+                    "Consumer Discretionary Weakness": [
+                        "Retail sector pessimism",
+                        "Luxury goods decline",
+                        "Consumer confidence drops",
+                        "Holiday spending forecasts cut"
+                    ]
+                }
+            },
+            "Silicon Valley Bank Collapse": {
+                "category": "Banking Crisis",
+                "color": "#f59e0b",
+                "severity": "critical",
+                "probability": 0.1,
+                "causes": {
+                    "Banking Sector Panic": [
+                        "Regional bank stock selloff",
+                        "Credit spreads widen",
+                        "Deposit flight to large banks",
+                        "Bank lending standards tighten"
+                    ],
+                    "Liquidity Concerns": [
+                        "Short-term funding markets freeze",
+                        "Money market fund inflows surge",
+                        "Treasury bill yields spike",
+                        "Corporate cash hoarding increases"
+                    ],
+                    "Venture Capital Funding Disruption": [
+                        "Startup valuations collapse",
+                        "IPO market closes",
+                        "Private equity deal delays",
+                        "Innovation sector slowdown"
+                    ]
+                }
+            },
+            "China Lockdowns Return": {
+                "category": "Geopolitical",
+                "color": "#ef4444",
+                "severity": "high",
+                "probability": 0.4,
+                "causes": {
+                    "Global Supply Chain Disruption": [
+                        "Manufacturing delays increase",
+                        "Shipping costs surge",
+                        "Inventory shortages",
+                        "Input cost inflation"
+                    ],
+                    "Commodity Demand Shock": [
+                        "Oil prices decline",
+                        "Copper and steel prices fall",
+                        "Agricultural exports disrupted",
+                        "Energy sector volatility"
+                    ],
+                    "Risk-Off Sentiment": [
+                        "Safe haven asset rally",
+                        "Emerging market selloff",
+                        "Volatility index spikes",
+                        "Growth expectations revised down"
+                    ]
+                }
+            },
+            "Inflation Surges to 8.5%": {
+                "category": "Economic Data",
+                "color": "#8b5cf6",
+                "severity": "high",
+                "probability": 0.6,
+                "causes": {
+                    "Central Bank Policy Response": [
+                        "Aggressive rate hike expectations",
+                        "Forward guidance becomes hawkish",
+                        "Quantitative tightening accelerates",
+                        "Currency strength from rate differentials"
+                    ],
+                    "Consumer Purchasing Power Decline": [
+                        "Discretionary spending cuts",
+                        "Trade-down consumption patterns",
+                        "Real wage declines",
+                        "Consumer confidence plummets"
+                    ],
+                    "Corporate Margin Pressure": [
+                        "Earnings guidance cuts",
+                        "Cost-push pricing strategies",
+                        "Labor cost negotiations intensify",
+                        "Profit margin compression"
+                    ]
+                }
+            },
+            "AI Revolution Disrupts Labor Markets": {
+                "category": "Technological Disruption",
+                "color": "#7c3aed",
+                "severity": "medium",
+                "probability": 0.8,
+                "causes": {
+                    "Sectoral Rotation Acceleration": [
+                        "AI/Tech stocks surge 40-60%",
+                        "Traditional services sector valuations compress",
+                        "Automation-vulnerable industries decline",
+                        "Human capital intensive stocks underperform"
+                    ],
+                    "Productivity Paradox": [
+                        "Corporate capex shifts to AI infrastructure",
+                        "Labor cost savings boost margins short-term",
+                        "Consumer spending patterns change dramatically",
+                        "Income inequality concerns rise"
+                    ],
+                    "Regulatory and Social Response": [
+                        "AI regulation proposals increase",
+                        "Universal basic income discussions intensify",
+                        "Retraining program government spending rises",
+                        "Social unrest probability increases"
+                    ]
+                }
+            },
+            "OPEC+ Surprise 2 Million Barrel Production Cut": {
+                "category": "Commodity Shock",
+                "color": "#059669",
+                "severity": "medium",
+                "probability": 0.5,
+                "causes": {
+                    "Energy Sector Rotation": [
+                        "Oil and gas equity prices surge 25-35%",
+                        "Renewable energy stocks initially decline",
+                        "Energy ETF massive inflows",
+                        "Refining margins expand significantly"
+                    ],
+                    "Inflationary Pressure Resurges": [
+                        "Central bank hawkish pivot probability rises",
+                        "Real yields compress as inflation expectations rise",
+                        "Consumer discretionary spending forecast cuts",
+                        "Transportation and logistics costs spike"
+                    ],
+                    "Geopolitical Risk Premium": [
+                        "Defense contractor stocks rally",
+                        "Safe haven demand for gold increases",
+                        "Emerging market oil importers decline",
+                        "Currency volatility in oil-dependent economies"
+                    ]
+                }
+            },
+            "Cryptocurrency Market Collapse (80% Decline)": {
+                "category": "Alternative Assets",
+                "color": "#f97316",
+                "severity": "medium",
+                "probability": 0.3,
+                "causes": {
+                    "Digital Asset Contagion": [
+                        "Crypto-exposed institutional losses",
+                        "Blockchain technology skepticism rises",
+                        "Regulatory crackdown acceleration",
+                        "Digital payment system disruption"
+                    ],
+                    "Wealth Effect Reversal": [
+                        "Crypto millionaire spending decline",
+                        "Luxury goods demand drops",
+                        "Venture capital funding freezes",
+                        "Fintech valuations compress"
+                    ],
+                    "Traditional Finance Vindication": [
+                        "Conservative asset allocation preference",
+                        "Regulatory compliance costs rise",
+                        "Central bank digital currency development accelerates",
+                        "Traditional banking market share recovery"
+                    ]
+                }
+            }
+        }
+
+    def build_knowledge_graph(self):
+        """Build the knowledge graph from market events data"""
+        node_id = 0
+
+        for event_name, event_data in self.market_events_data.items():
+            # Add main event node
+            self.graph.add_node(
+                node_id,
+                name=event_name,
+                type='event',
+                category=event_data['category'],
+                color=event_data['color'],
+                severity=event_data['severity'],
+                probability=event_data['probability'],
+                size=30
+            )
+            event_node_id = node_id
+            node_id += 1
+
+            # Add cause nodes and impact nodes
+            for cause_name, impacts in event_data['causes'].items():
+                # Add cause node
+                self.graph.add_node(
+                    node_id,
+                    name=cause_name,
+                    type='cause',
+                    category=event_data['category'],
+                    color=event_data['color'],
+                    size=20
+                )
+                cause_node_id = node_id
+                node_id += 1
+
+                # Add edge from event to cause
+                self.graph.add_edge(event_node_id, cause_node_id,
+                                    relationship='causes', weight=1.0)
+
+                # Add impact nodes
+                for impact in impacts:
+                    self.graph.add_node(
+                        node_id,
+                        name=impact,
+                        type='impact',
+                        category=event_data['category'],
+                        color=event_data['color'],
+                        size=15
+                    )
+                    impact_node_id = node_id
+                    node_id += 1
+
+                    # Add edge from cause to impact
+                    self.graph.add_edge(cause_node_id, impact_node_id,
+                                        relationship='impacts', weight=0.8)
+
+    def get_graph_statistics(self) -> Dict:
+        """Get basic statistics about the knowledge graph"""
+        return {
+            'total_nodes': self.graph.number_of_nodes(),
+            'total_edges': self.graph.number_of_edges(),
+            'density': nx.density(self.graph),
+            'average_clustering': nx.average_clustering(self.graph.to_undirected()),
+            'number_of_events': len([n for n, d in self.graph.nodes(data=True) if d['type'] == 'event']),
+            'number_of_causes': len([n for n, d in self.graph.nodes(data=True) if d['type'] == 'cause']),
+            'number_of_impacts': len([n for n, d in self.graph.nodes(data=True) if d['type'] == 'impact'])
+        }
+
+    def find_related_events(self, event_name: str, max_distance: int = 2) -> List[Dict]:
+        """Find events related to a given event within max_distance"""
+        target_nodes = [n for n, d in self.graph.nodes(data=True)
+                        if d['type'] == 'event' and event_name.lower() in d['name'].lower()]
+
+        if not target_nodes:
+            return []
+
+        related_events = []
+        for target_node in target_nodes:
+            # Use shortest path to find related events
+            try:
+                paths = nx.single_source_shortest_path_length(
+                    self.graph.to_undirected(), target_node, cutoff=max_distance
+                )
+                for node, distance in paths.items():
+                    if (distance > 0 and distance <= max_distance and
+                            self.graph.nodes[node]['type'] == 'event'):
+                        related_events.append({
+                            'name': self.graph.nodes[node]['name'],
+                            'category': self.graph.nodes[node]['category'],
+                            'distance': distance,
+                            'severity': self.graph.nodes[node].get('severity', 'unknown')
+                        })
+            except nx.NetworkXError:
+                continue
+
+        return sorted(related_events, key=lambda x: x['distance'])
+
+    def analyze_event_impact(self, event_name: str) -> Dict:
+        """Analyze the impact chain of a specific event"""
+        event_nodes = [n for n, d in self.graph.nodes(data=True)
+                       if d['type'] == 'event' and event_name.lower() in d['name'].lower()]
+
+        if not event_nodes:
+            return {'error': 'Event not found'}
+
+        event_node = event_nodes[0]
+        analysis = {
+            'event_name': self.graph.nodes[event_node]['name'],
+            'category': self.graph.nodes[event_node]['category'],
+            'severity': self.graph.nodes[event_node].get('severity', 'unknown'),
+            'probability': self.graph.nodes[event_node].get('probability', 0),
+            'direct_causes': [],
+            'total_impacts': 0,
+            'impact_categories': defaultdict(int)
+        }
+
+        # Get direct causes
+        for successor in self.graph.successors(event_node):
+            if self.graph.nodes[successor]['type'] == 'cause':
+                cause_data = {
+                    'name': self.graph.nodes[successor]['name'],
+                    'impacts': []
+                }
+
+                # Get impacts for this cause
+                for impact_node in self.graph.successors(successor):
+                    if self.graph.nodes[impact_node]['type'] == 'impact':
+                        impact_name = self.graph.nodes[impact_node]['name']
+                        cause_data['impacts'].append(impact_name)
+                        analysis['total_impacts'] += 1
+
+                        # Categorize impact
+                        if any(word in impact_name.lower() for word in ['stock', 'equity', 'share']):
+                            analysis['impact_categories']['equity_markets'] += 1
+                        elif any(word in impact_name.lower() for word in ['bond', 'yield', 'credit']):
+                            analysis['impact_categories']['fixed_income'] += 1
+                        elif any(word in impact_name.lower() for word in ['consumer', 'spending', 'confidence']):
+                            analysis['impact_categories']['consumer_behavior'] += 1
+                        elif any(word in impact_name.lower() for word in ['cost', 'margin', 'earnings']):
+                            analysis['impact_categories']['corporate_performance'] += 1
+                        else:
+                            analysis['impact_categories']['other'] += 1
+
+                analysis['direct_causes'].append(cause_data)
+
+        return analysis
+
+    def visualize_graph_plotly(self, layout_type='spring') -> go.Figure:
+        """Create an interactive visualization using Plotly"""
+        if layout_type == 'spring':
+            pos = nx.spring_layout(self.graph, k=3, iterations=50)
+        elif layout_type == 'circular':
+            pos = nx.circular_layout(self.graph)
+        else:
+            pos = nx.random_layout(self.graph)
+
+        # Prepare node traces by type
+        node_traces = {}
+        for node_type in ['event', 'cause', 'impact']:
+            nodes_of_type = [n for n, d in self.graph.nodes(data=True) if d['type'] == node_type]
+
+            if nodes_of_type:
+                x_coords = [pos[node][0] for node in nodes_of_type]
+                y_coords = [pos[node][1] for node in nodes_of_type]
+
+                node_traces[node_type] = go.Scatter(
+                    x=x_coords,
+                    y=y_coords,
+                    mode='markers+text',
+                    marker=dict(
+                        size=[self.graph.nodes[node]['size'] for node in nodes_of_type],
+                        color=[self.graph.nodes[node]['color'] for node in nodes_of_type],
+                        line=dict(width=2, color='white')
+                    ),
+                    text=[self.graph.nodes[node]['name'][:20] + '...' if len(self.graph.nodes[node]['name']) > 20
+                          else self.graph.nodes[node]['name'] for node in nodes_of_type],
+                    textposition="middle center",
+                    textfont=dict(size=8),
+                    name=node_type.capitalize(),
+                    hovertemplate='<b>%{text}</b><br>Type: ' + node_type + '<extra></extra>'
+                )
+
+        # Prepare edge trace
+        edge_x = []
+        edge_y = []
+        for edge in self.graph.edges():
+            x0, y0 = pos[edge[0]]
+            x1, y1 = pos[edge[1]]
+            edge_x.extend([x0, x1, None])
+            edge_y.extend([y0, y1, None])
+
+        edge_trace = go.Scatter(
+            x=edge_x, y=edge_y,
+            line=dict(width=1, color='gray'),
+            hoverinfo='none',
+            mode='lines',
+            name='Connections'
+        )
+
+        # Create figure
+        fig = go.Figure(data=[edge_trace] + list(node_traces.values()))
+
+        fig.update_layout(
+            title='Market Events Knowledge Graph',
+            titlefont_size=16,
+            showlegend=True,
+            hovermode='closest',
+            margin=dict(b=20, l=5, r=5, t=40),
+            annotations=[
+                dict(
+                    text="Interactive Market Events Knowledge Graph - Click and drag to explore",
+                    showarrow=False,
+                    xref="paper", yref="paper",
+                    x=0.005, y=-0.002,
+                    xanchor="left", yanchor="bottom",
+                    font=dict(color="gray", size=12)
+                )
+            ],
+            xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+            yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+            plot_bgcolor='white'
+        )
+
+        return fig
+
+    def create_risk_matrix(self) -> go.Figure:
+        """Create a risk matrix visualization"""
+        events_data = []
+        for event_name, event_info in self.market_events_data.items():
+            severity_map = {'low': 1, 'medium': 2, 'high': 3, 'critical': 4}
+            events_data.append({
+                'event': event_name[:30] + '...' if len(event_name) > 30 else event_name,
+                'probability': event_info['probability'],
+                'severity': severity_map.get(event_info['severity'], 2),
+                'category': event_info['category'],
+                'color': event_info['color']
+            })
+
+        fig = go.Figure()
+
+        for event in events_data:
+            fig.add_trace(go.Scatter(
+                x=[event['probability']],
+                y=[event['severity']],
+                mode='markers',
+                marker=dict(
+                    size=15,
+                    color=event['color'],
+                    line=dict(width=2, color='white')
+                ),
+                text=event['event'],
+                name=event['category'],
+                hovertemplate='<b>%{text}</b><br>Probability: %{x:.1%}<br>Severity: %{y}<extra></extra>'
+            ))
+
+        fig.update_layout(
+            title='Market Events Risk Matrix',
+            xaxis_title='Probability',
+            yaxis_title='Severity Level',
+            xaxis=dict(tickformat='.0%', range=[0, 1]),
+            yaxis=dict(tickvals=[1, 2, 3, 4], ticktext=['Low', 'Medium', 'High', 'Critical']),
+            showlegend=True,
+            hovermode='closest'
+        )
+
+        return fig
+
+    def conversational_ai(self, user_query: str) -> str:
+        """Simple conversational AI for querying the knowledge graph"""
+        query = user_query.lower().strip()
+
+        # Add to conversation history
+        self.conversation_history.append({
+            'timestamp': datetime.now(),
+            'user': user_query,
+            'type': 'query'
+        })
+
+        response = ""
+
+        # Pattern matching for different types of queries
+        if any(word in query for word in ['interest rate', 'fed', 'federal reserve']):
+            analysis = self.analyze_event_impact("Federal Reserve Raises Interest Rates")
+            if 'error' not in analysis:
+                response = f"""Interest rate changes by the Federal Reserve have significant market impacts:
+
+**Event**: {analysis['event_name']}
+**Severity**: {analysis['severity'].capitalize()}
+**Probability**: {analysis['probability']:.1%}
+
+**Key Impact Areas**:
+- Equity Markets: {analysis['impact_categories']['equity_markets']} direct impacts
+- Fixed Income: {analysis['impact_categories']['fixed_income']} direct impacts  
+- Consumer Behavior: {analysis['impact_categories']['consumer_behavior']} direct impacts
+- Corporate Performance: {analysis['impact_categories']['corporate_performance']} direct impacts
+
+The main transmission mechanisms include higher borrowing costs, stronger USD, and rising bond yields, affecting everything from corporate capex to consumer spending."""
+
+        elif any(word in query for word in ['inflation', 'price']):
+            analysis = self.analyze_event_impact("Inflation Surges")
+            if 'error' not in analysis:
+                response = f"""Inflation surges create cascading effects across the economy:
+
+**Total Impact Channels**: {analysis['total_impacts']} direct market impacts identified
+**Severity Level**: {analysis['severity'].capitalize()}
+
+Key consequences include central bank hawkish responses, declining consumer purchasing power, and corporate margin pressure. Companies typically face earnings guidance cuts while consumers experience real wage declines."""
+
+        elif any(word in query for word in ['bank', 'svb', 'silicon valley']):
+            analysis = self.analyze_event_impact("Silicon Valley Bank")
+            if 'error' not in analysis:
+                response = f"""Banking crises create systemic risks with far-reaching consequences:
+
+**Risk Level**: {analysis['severity'].upper()}
+**Impact Scope**: {analysis['total_impacts']} direct market effects
+
+The collapse triggers deposit flight, credit spread widening, and liquidity concerns. This particularly affects venture capital funding and the broader innovation ecosystem."""
+
+        elif any(word in query for word in ['china', 'supply chain', 'lockdown']):
+            related = self.find_related_events("China Lockdowns")
+            response = f"""China lockdowns create global supply chain disruptions affecting multiple sectors:
+
+**Direct Impacts**: Manufacturing delays, shipping cost surges, inventory shortages
+**Commodity Effects**: Reduced demand for oil, copper, and steel
+**Market Sentiment**: Risk-off behavior, safe haven flows
+
+**Related Events** ({len(related)} found):
+""" + "\n".join([f"- {event['name']} (Distance: {event['distance']})" for event in related[:3]])
+
+        elif any(word in query for word in ['ai', 'artificial intelligence', 'technology']):
+            analysis = self.analyze_event_impact("AI Revolution")
+            if 'error' not in analysis:
+                response = f"""AI disruption creates significant sectoral shifts:
+
+**Probability**: {analysis['probability']:.1%}
+**Market Impact**: AI/Tech stocks surge while traditional services face compression
+
+**Key Transformation Areas**:
+- Productivity gains through automation
+- Corporate capex shifts to AI infrastructure  
+- Regulatory and social policy responses
+- Labor market structural changes"""
+
+        elif any(word in query for word in ['risk', 'matrix', 'probability']):
+            stats = self.get_graph_statistics()
+            high_risk_events = [name for name, data in self.market_events_data.items()
+                                if data['severity'] in ['high', 'critical']]
+            response = f"""**Market Risk Analysis**:
+
+**Knowledge Graph Statistics**:
+- Total Events Tracked: {stats['number_of_events']}
+- Total Impact Channels: {stats['total_impacts']}
+- Network Density: {stats['density']:.3f}
+
+**High-Risk Events** ({len(high_risk_events)}):
+""" + "\n".join([f"- {event}" for event in high_risk_events[:5]])
+
+        elif any(word in query for word in ['correlation', 'related', 'connection']):
+            response = """**Event Interconnections**:
+
+Market events are highly interconnected through shared transmission mechanisms:
+
+1. **Interest Rate-Inflation Nexus**: Fed policy directly responds to inflation data
+2. **Banking-Liquidity Chain**: Bank stress affects funding markets globally  
+3. **Supply Chain-Geopolitical Links**: China events impact global manufacturing
+4. **Technology-Labor Disruption**: AI advancement affects multiple sectors
+
+Use specific event names to explore detailed relationships."""
+
+        elif any(word in query for word in ['statistic', 'stats', 'overview']):
+            stats = self.get_graph_statistics()
+            categories = defaultdict(int)
+            for _, data in self.market_events_data.items():
+                categories[data['category']] += 1
+
+            response = f"""**Knowledge Graph Overview**:
+
+**Network Statistics**:
+- Nodes: {stats['total_nodes']}
+- Connections: {stats['total_edges']}
+- Average Clustering: {stats['average_clustering']:.3f}
+
+**Event Categories**:
+""" + "\n".join([f"- {cat}: {count} events" for cat, count in categories.items()])
+
+        else:
+            # Default response with available queries
+            response = f"""I can help analyze market events and their interconnections. The knowledge graph contains {self.get_graph_statistics()['number_of_events']} major market events.
+
+**Available Queries**:
+- "How do interest rate changes affect markets?"
+- "What are the impacts of inflation?"
+- "Analyze banking crisis effects"
+- "Show me risk statistics"
+- "Find related events to [event name]"
+- "What are the correlations between events?"
+
+**Event Categories Available**:
+""" + "\n".join([f"- {cat}" for cat in set(data['category'] for data in self.market_events_data.values())])
+
+        # Add response to history
+        self.conversation_history.append({
+            'timestamp': datetime.now(),
+            'assistant': response,
+            'type': 'response'
+        })
+
+        return response
+
+    def export_graph_data(self, format_type='json') -> str:
+        """Export graph data in different formats"""
+        if format_type == 'json':
+            data = nx.node_link_data(self.graph)
+            return json.dumps(data, indent=2)
+        elif format_type == 'gexf':
+            return nx.generate_gexf(self.graph)
+        elif format_type == 'graphml':
+            return nx.generate_graphml(self.graph)
+        else:
+            return "Unsupported format"
+
+    def save_conversation_history(self, filename: str):
+        """Save conversation history to file"""
+        with open(filename, 'w') as f:
+            json.dump(self.conversation_history, f, indent=2, default=str)
+
+    def load_conversation_history(self, filename: str):
+        """Load conversation history from file"""
+        try:
+            with open(filename, 'r') as f:
+                self.conversation_history = json.load(f)
+        except FileNotFoundError:
+            print(f"File {filename} not found")
+
+
+# Streamlit Web Application
+def create_streamlit_app():
+    """Create a Streamlit web application"""
+    st.set_page_config(
+        page_title="Market Events Knowledge Graph",
+        page_icon="📈",
+        layout="wide"
+    )
+
+    st.title("🏦 JP Morgan Market Events Knowledge Graph")
+    st.markdown("*Advanced Market Intelligence & Risk Analysis System*")
+
+    # Initialize the knowledge graph
+    if 'kg' not in st.session_state:
+        st.session_state.kg = MarketEventKnowledgeGraph()
+
+    kg = st.session_state.kg
+
+    # Sidebar
+    st.sidebar.header("Navigation")
+    tab = st.sidebar.selectbox(
+        "Select Analysis Type",
+        ["Knowledge Graph", "Risk Matrix", "AI Assistant", "Event Analysis", "Statistics"]
+    )
+
+    if tab == "Knowledge Graph":
+        st.header("Interactive Knowledge Graph")
+
+        layout_type = st.selectbox("Layout Type", ["spring", "circular", "random"])
+        fig = kg.visualize_graph_plotly(layout_type)
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Graph statistics
+        stats = kg.get_graph_statistics()
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Total Nodes", stats['total_nodes'])
+        col2.metric("Total Edges", stats['total_edges'])
+        col3.metric("Events", stats['number_of_events'])
+        col4.metric("Network Density", f"{stats['density']:.3f}")
+
+    elif tab == "Risk Matrix":
+        st.header("Market Risk Matrix")
+        fig = kg.create_risk_matrix()
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.markdown("""
+        **Risk Matrix Interpretation**:
+        - **X-axis**: Probability of occurrence (0-100%)
+        - **Y-axis**: Severity level (Low to Critical)
+        - **Color**: Event category
+        - **Position**: Events in upper-right quadrant require immediate attention
+        """)
+
+    elif tab == "AI Assistant":
+        st.header("🤖 Market Intelligence AI Assistant")
+
+        # Chat interface
+        if 'messages' not in st.session_state:
+            st.session_state.messages = []
+
+        # Display chat messages
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+
+        # Chat input
+        if prompt := st.chat_input("Ask about market events, risks, or correlations..."):
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
+
+            with st.chat_message("assistant"):
+                response = kg.conversational_ai(prompt)
+                st.markdown(response)
+            st.session_state.messages.append({"role": "assistant", "content": response})
+
+    elif tab == "Event Analysis":
+        st.header("Detailed Event Analysis")
+
+        event_names = list(kg.market_events_data.keys())
+        selected_event = st.selectbox("Select Event to Analyze", event_names)
+
+        if selected_event:
+            analysis = kg.analyze_event_impact(selected_event)
+
+            if 'error' not in analysis:
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.subheader("Event Details")
+                    st.write(f"**Category**: {analysis['category']}")
+                    st.write(f"**Severity**: {analysis['severity'].capitalize()}")
+                    st.write(f"**Probability**: {analysis['probability']:.1%}")
+
+
+                    st.write(f"**Total Impacts**: {analysis['total_impacts']}")
+
+                    with col2:
+                        st.subheader("Impact Distribution")
+                    impact_data = dict(analysis['impact_categories'])
+                    if impact_data:
+                        fig_pie = px.pie(
+                            values=list(impact_data.values()),
+                            names=list(impact_data.keys()),
+                            title="Impact Categories Distribution"
+                        )
+                    st.plotly_chart(fig_pie, use_container_width=True)
+
+                    # Detailed causes and impacts
+                    st.subheader("Cause-Impact Analysis")
+                    for cause in analysis['direct_causes']:
+
+                    with st.expander(f"📊 {cause['name']}"):
+                        st.write("**Direct Market Impacts:**")
+                    for impact in cause['impacts']:
+                        st.write(f"• {impact}")
+
+                    # Related events
+                    related_events = kg.find_related_events(selected_event)
+                    if related_events:
+                        st.subheader("Related Events")
+                    for event in related_events[:5]:
+                        st.write(
+                            f"🔗 **{event['name']}** (Distance: {event['distance']}, Severity: {event['severity']})")
+
+                    elif tab == "Statistics":
+                    st.header("Knowledge Graph Statistics")
+
+                    stats = kg.get_graph_statistics()
+
+                    # Main statistics
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Total Nodes", stats['total_nodes'])
+                    st.metric("Total Edges", stats['total_edges'])
+                    with col2:
+                        st.metric("Events", stats['number_of_events'])
+                    st.metric("Causes", stats['number_of_causes'])
+                    with col3:
+                        st.metric("Impacts", stats['number_of_impacts'])
+                    st.metric("Network Density", f"{stats['density']:.3f}")
+
+                    # Category distribution
+                    st.subheader("Event Categories")
+                    categories = {}
+                    severity_counts = {}
+
+                    for event_name, event_data in kg.market_events_data.items():
+                        cat = event_data['category']
+                    sev = event_data['severity']
+                    categories[cat] = categories.get(cat, 0) + 1
+                    severity_counts[sev] = severity_counts.get(sev, 0) + 1
+
+                    col1, col2 = st.columns(2)
+
+                    with col1:
+                        fig_cat = px.bar(
+                            x=list(categories.keys()),
+                            y=list(categories.values()),
+                            title="Events by Category",
+                            labels={'x': 'Category', 'y': 'Number of Events'}
+                        )
+                    st.plotly_chart(fig_cat, use_container_width=True)
+
+                    with col2:
+                        fig_sev = px.pie(
+                            values=list(severity_counts.values()),
+                            names=list(severity_counts.keys()),
+                            title="Events by Severity Level"
+                        )
+                    st.plotly_chart(fig_sev, use_container_width=True)
+
+                    # Probability analysis
+                    st.subheader("Risk-Probability Analysis")
+                    prob_data = []
+                    for event_name, event_data in kg.market_events_data.items():
+                        prob_data.append({
+                            'Event': event_name[:30] + '...' if len(event_name) > 30 else event_name,
+                            'Probability': event_data['probability'],
+                            'Category': event_data['category'],
+                            'Severity': event_data['severity']
+                        })
+
+                    df_prob = pd.DataFrame(prob_data)
+                    fig_prob = px.scatter(
+                        df_prob,
+                        x='Probability',
+                        y='Event',
+                        color='Category',
+                        size=[20] * len(df_prob),
+                        title="Event Probability Distribution",
+                        labels={'Probability': 'Probability (%)', 'Event': 'Market Events'}
+                    )
+                    fig_prob.update_xaxis(tickformat='.0%')
+                    st.plotly_chart(fig_prob, use_container_width=True)
+
+                    # Export options
+                    st.subheader("Data Export")
+                    export_format = st.selectbox("Export Format", ["json", "gexf", "graphml"])
+
+                    if st.button("Export Graph Data"):
+                        exported_data = kg.export_graph_data(export_format)
+                    st.download_button(
+                        label=f"Download {export_format.upper()} file",
+                        data=exported_data,
+                        file_name=f"market_events_graph.{export_format}",
+                        mime="application/octet-stream"
+                    )
+
+                    # Footer
+                    st.markdown("---")
+                    st.markdown("""
+                        **Market Events Knowledge Graph System** | 
+                        Built with NetworkX, Plotly, and Streamlit | 
+                        For advanced market intelligence and risk analysis
+                        """)
+
+                    # Additional utility functions
+
+                    def run_analysis_pipeline():
+                        """Run a complete analysis pipeline"""
+                        kg = MarketEventKnowledgeGraph()
+
+                        print("=== Market Events Knowledge Graph Analysis ===\n")
+
+                        # Basic statistics
+                        stats = kg.get_graph_statistics()
+                        print(f"Graph Statistics:")
+                        print(f"- Total Nodes: {stats['total_nodes']}")
+                        print(f"- Total Edges: {stats['total_edges']}")
+                        print(f"- Network Density: {stats['density']:.3f}")
+                        print(f"- Events: {stats['number_of_events']}")
+                        print(f"- Causes: {stats['number_of_causes']}")
+                        print(f"- Impacts: {stats['number_of_impacts']}\n")
+
+                        # Analyze each major event
+                        for event_name in kg.market_events_data.keys():
+                            print(f"=== Analysis: {event_name} ===")
+                            analysis = kg.analyze_event_impact(event_name)
+                            if 'error' not in analysis:
+                                print(f"Severity: {analysis['severity']}")
+                                print(f"Probability: {analysis['probability']:.1%}")
+                                print(f"Total Impacts: {analysis['total_impacts']}")
+                                print(f"Direct Causes: {len(analysis['direct_causes'])}")
+                                print()
+
+                        return kg
+
+                    def demo_conversational_ai():
+                        """Demonstrate the conversational AI capabilities"""
+                        kg = MarketEventKnowledgeGraph()
+
+                        sample_queries = [
+                            "How do interest rate changes affect markets?",
+                            "What are the risks from banking crises?",
+                            "Show me inflation impacts",
+                            "What are the statistics?",
+                            "Find correlations between events"
+                        ]
+
+                        print("=== Conversational AI Demo ===\n")
+
+                        for query in sample_queries:
+                            print(f"Query: {query}")
+                            response = kg.conversational_ai(query)
+                            print(f"Response: {response}\n")
+                            print("-" * 80 + "\n")
+
+                    # Main execution
+                    if __name__ == "__main__":
+                        # Check if running in Streamlit
+                        try:
+                            import streamlit as st
+                            # If we're here, we're in Streamlit
+                            create_streamlit_app()
+                        except:
+                            # Running as standalone script
+                            print("Running Market Events Knowledge Graph Analysis...")
+
+                            # Create knowledge graph
+                            kg = run_analysis_pipeline()
+
+                            # Demo conversational AI
+                            demo_conversational_ai()
+
+                            # Save conversation history
+                            kg.save_conversation_history("market_analysis_history.json")
+
+                            print("Analysis complete. Check 'market_analysis_history.json' for conversation log.")
+                            print("To run the web interface, use: streamlit run this_script.py")
